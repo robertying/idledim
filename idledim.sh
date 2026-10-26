@@ -14,8 +14,9 @@ expected=0   # last brightness set by this script
 
 # fade TO SECONDS
 fade() {
-  expected=$(printf '%.3f' $1)
-  "$BIN" "$expected" "$2"
+  local target=$(printf '%.3f' $1)
+  "$BIN" "$target" "$2" || return
+  expected=$target
 }
 
 blocks_sleep() {
@@ -23,7 +24,8 @@ blocks_sleep() {
 }
 
 restore() {
-  fade $saved 0.3
+  # The display can be missing (asleep, unplugged); stay dimmed and retry on the next poll.
+  fade $saved 0.3 || return
   state=0
   echo "$(date '+%F %T') restored $saved"
 }
@@ -45,9 +47,10 @@ while true; do
     if [[ -n $cur ]]; then
       warn=$(( saved * WARN_FACTOR ))
       expected=$saved
-      fade $warn 1.2
-      state=1
-      echo "$(date '+%F %T') dimmed to $warn (saved $saved)"
+      if fade $warn 1.2; then
+        state=1
+        echo "$(date '+%F %T') dimmed to $warn (saved $saved)"
+      fi
     fi
   fi
 
